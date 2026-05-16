@@ -1,5 +1,5 @@
 <template>
-  <article class="stat-card" :class="{ 'stat-card--highlight': highlight }">
+  <article class="stat-card" :class="{ 'stat-card--highlight': highlight, 'stat-card--compact': compact }">
     <div class="stat-card__value">{{ value }}</div>
     <div class="stat-card__label">{{ label }}</div>
     <div v-if="trend" class="stat-card__trend" :class="`stat-card__trend--${trendTone}`">{{ trend }}</div>
@@ -13,10 +13,12 @@ withDefaults(defineProps<{
   trend?: string;
   trendTone?: 'green' | 'amber' | 'blue' | 'muted';
   highlight?: boolean;
+  compact?: boolean;
 }>(), {
   trend: '',
   trendTone: 'muted',
-  highlight: false
+  highlight: false,
+  compact: false
 });
 </script>
 
@@ -58,4 +60,19 @@ withDefaults(defineProps<{
 .stat-card__trend--amber { color: var(--accent-amber); }
 .stat-card__trend--blue { color: var(--accent-blue); }
 .stat-card__trend--muted { color: var(--text-secondary); }
+
+.stat-card--compact {
+  padding: 10px;
+  border-radius: 10px;
+}
+
+.stat-card--compact .stat-card__value {
+  font-size: 22px;
+}
+
+.stat-card--compact .stat-card__label {
+  margin-top: 4px;
+  font-size: 10px;
+  white-space: nowrap;
+}
 </style>
