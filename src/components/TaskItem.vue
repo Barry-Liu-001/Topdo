@@ -115,17 +115,18 @@
               <path d="M2.5 6l2.5 2.5 4.5-5" fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
             </svg>
           </button>
-          <input
+          <textarea
             v-if="editingSubTaskId === item.id"
             ref="subTaskInlineInputRef"
-            v-model.trim="editingSubTaskDraft"
-            type="text"
+            v-model="editingSubTaskDraft"
+            rows="1"
             class="subtask-inline-edit-input"
             @click.stop
+            @input="autoResizeSubTaskInput"
             @blur="commitSubTaskInlineEdit"
-            @keydown.enter.prevent="commitSubTaskInlineEdit"
+            @keydown.enter.exact.prevent="commitSubTaskInlineEdit"
             @keydown.esc.prevent="cancelSubTaskInlineEdit"
-          />
+          ></textarea>
           <span v-else class="subtask-inline-text" :class="{ done: item.done }" @dblclick.stop.prevent="startSubTaskInlineEdit(item.id)">{{ item.text }}</span>
         </div>
       </div>
@@ -894,10 +895,21 @@ function startSubTaskInlineEdit(id: string) {
   editingSubTaskDraft.value = item.text;
   void nextTick(() => {
     const inputs = taskItemRootRef.value?.querySelectorAll('.subtask-inline-edit-input');
-    const input = inputs?.[0] as HTMLInputElement | undefined;
-    input?.focus();
-    input?.select();
+    const textarea = inputs?.[0] as HTMLTextAreaElement | undefined;
+    if (textarea) {
+      textarea.focus();
+      textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+      autoResizeSubTaskInput();
+    }
   });
+}
+
+function autoResizeSubTaskInput() {
+  const inputs = taskItemRootRef.value?.querySelectorAll('.subtask-inline-edit-input');
+  const textarea = inputs?.[0] as HTMLTextAreaElement | undefined;
+  if (!textarea) return;
+  textarea.style.height = 'auto';
+  textarea.style.height = textarea.scrollHeight + 'px';
 }
 
 async function commitSubTaskInlineEdit() {
@@ -2323,6 +2335,8 @@ defineExpose({
   font-size: 11px;
   line-height: 1.3;
   padding: 0;
+  resize: none;
+  overflow: hidden;
 }
 
 .subtask-collapse-enter-active,
