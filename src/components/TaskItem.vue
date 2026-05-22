@@ -1207,7 +1207,6 @@ defineExpose({
 .task-content {
   flex: 1;
   min-width: 0;
-  overflow: hidden;
 }
 
 .task-name {
@@ -1215,9 +1214,7 @@ defineExpose({
   font-weight: 400;
   color: var(--text-primary, #1d1d1f);
   line-height: 1.4;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  word-break: break-word;
 }
 
 .task-name-highlight {
@@ -2279,9 +2276,7 @@ defineExpose({
   font-size: 11px;
   color: var(--text-secondary);
   line-height: 1.3;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  word-break: break-word;
 }
 
 .subtask-inline-text.done {
