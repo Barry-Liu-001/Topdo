@@ -107,27 +107,29 @@
         <span class="task-time">{{ formatTime(task.created_at) }}</span>
       </div>
     </article>
-    <div v-if="subTaskTotal > 0 && !inlineEditing && !subtasksCollapsed && !expanded" class="subtask-inline-list">
-      <div v-for="item in subTasks" :key="item.id" class="subtask-inline-item">
-        <button type="button" class="subtask-inline-checkbox" :class="{ checked: item.done }" @click.stop="toggleSubTaskInline(item.id)">
-          <svg v-if="item.done" viewBox="0 0 12 12" width="8" height="8" aria-hidden="true">
-            <path d="M2.5 6l2.5 2.5 4.5-5" fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
-          </svg>
-        </button>
-        <input
-          v-if="editingSubTaskId === item.id"
-          ref="subTaskInlineInputRef"
-          v-model.trim="editingSubTaskDraft"
-          type="text"
-          class="subtask-inline-edit-input"
-          @click.stop
-          @blur="commitSubTaskInlineEdit"
-          @keydown.enter.prevent="commitSubTaskInlineEdit"
-          @keydown.esc.prevent="cancelSubTaskInlineEdit"
-        />
-        <span v-else class="subtask-inline-text" :class="{ done: item.done }" @dblclick.stop.prevent="startSubTaskInlineEdit(item.id)">{{ item.text }}</span>
+    <Transition name="subtask-collapse">
+      <div v-if="subTaskTotal > 0 && !inlineEditing && !subtasksCollapsed && !expanded" class="subtask-inline-list">
+        <div v-for="item in subTasks" :key="item.id" class="subtask-inline-item">
+          <button type="button" class="subtask-inline-checkbox" :class="{ checked: item.done }" @click.stop="toggleSubTaskInline(item.id)">
+            <svg v-if="item.done" viewBox="0 0 12 12" width="8" height="8" aria-hidden="true">
+              <path d="M2.5 6l2.5 2.5 4.5-5" fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          </button>
+          <input
+            v-if="editingSubTaskId === item.id"
+            ref="subTaskInlineInputRef"
+            v-model.trim="editingSubTaskDraft"
+            type="text"
+            class="subtask-inline-edit-input"
+            @click.stop
+            @blur="commitSubTaskInlineEdit"
+            @keydown.enter.prevent="commitSubTaskInlineEdit"
+            @keydown.esc.prevent="cancelSubTaskInlineEdit"
+          />
+          <span v-else class="subtask-inline-text" :class="{ done: item.done }" @dblclick.stop.prevent="startSubTaskInlineEdit(item.id)">{{ item.text }}</span>
+        </div>
       </div>
-    </div>
+    </Transition>
     <div v-if="inlineEditing" class="inline-edit-hint">回车保存 · Esc 取消</div>
 
     <Transition name="context-menu">
@@ -2321,6 +2323,24 @@ defineExpose({
   font-size: 11px;
   line-height: 1.3;
   padding: 0;
+}
+
+.subtask-collapse-enter-active,
+.subtask-collapse-leave-active {
+  transition: max-height 0.25s ease, opacity 0.2s ease;
+  overflow: hidden;
+}
+
+.subtask-collapse-enter-from,
+.subtask-collapse-leave-to {
+  max-height: 0;
+  opacity: 0;
+}
+
+.subtask-collapse-enter-to,
+.subtask-collapse-leave-from {
+  max-height: 500px;
+  opacity: 1;
 }
 
 </style>
