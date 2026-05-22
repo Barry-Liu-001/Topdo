@@ -1,17 +1,25 @@
 node_modules/
 dist/
+
 .DS_Store
+Thumbs.db
 
-# Rust / Tauri build artifacts
-src-tauri/target/
-src-tauri/gen/
-
-# Local temp artifacts
 *.log
 *.tmp
 *.swp
 *.swo
+*~
 
-# Optional local icon working dir/archive
+src-tauri/target/
+src-tauri/gen/
+
 taskfloat-icons/
 taskfloat-icons*.tar.gz
+
+.trae/
+
+.env
+.env.*
+!.env.example
+
+*.local
