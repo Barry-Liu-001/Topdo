@@ -9,7 +9,7 @@
       ]"
       :data-task-id="task.record_id"
       @contextmenu.prevent="openContextMenu"
-      @click="emit('focus', task.record_id)"
+      @click="onTaskContentClick"
     >
       <div v-if="priorityColor" class="priority-bar" :style="{ background: priorityColor }"></div>
 
@@ -108,7 +108,7 @@
         <span class="task-time">{{ formatTime(task.created_at) }}</span>
       </div>
     </article>
-    <div v-if="subTaskTotal > 0 && !inlineEditing" class="subtask-inline-list">
+    <div v-if="subTaskTotal > 0 && !inlineEditing && !subtasksCollapsed" class="subtask-inline-list">
       <div v-for="item in subTasks" :key="item.id" class="subtask-inline-item">
         <button type="button" class="subtask-inline-checkbox" :class="{ checked: item.done }" @click.stop="toggleSubTaskInline(item.id)">
           <svg v-if="item.done" viewBox="0 0 12 12" width="8" height="8" aria-hidden="true">
@@ -319,6 +319,7 @@ const priorityDraft = ref(normalizePriorityDraft(props.task.priority));
 const newSubTaskText = ref('');
 const editingSubTaskId = ref<string | null>(null);
 const editingSubTaskDraft = ref('');
+const subtasksCollapsed = ref(true);
 const initialDueParts = splitDueDate(props.task.due_date);
 const dueDateDraft = ref(initialDueParts.date);
 const dueTimeDraft = ref(initialDueParts.time);
@@ -543,6 +544,7 @@ watch(dueTimeDraft, () => { if (expanded.value) autoSaveDetails(); });
 watch(recurrenceDraft, () => { if (expanded.value) autoSaveDetails(); }, { deep: true });
 watch(reminderDraft, () => { if (expanded.value) autoSaveDetails(); });
 watch(subTasksDraft, () => { if (expanded.value && subTasksDirty.value) autoSaveDetails(); }, { deep: true });
+watch(expanded, (val) => { if (val) subtasksCollapsed.value = false; });
 
 const statusKey = computed(() => {
   const value = props.task.status.trim();
@@ -696,7 +698,16 @@ function handleNameBlur(event: FocusEvent) {
 
 function onTaskContentClick() {
   if (inlineEditing.value) return;
-  expanded.value = !expanded.value;
+  emit('focus', props.task.record_id);
+  if (expanded.value) {
+    flushAutoSave();
+    expanded.value = false;
+  } else if (subTaskTotal.value > 0 && !subtasksCollapsed.value) {
+    subtasksCollapsed.value = true;
+  } else {
+    subtasksCollapsed.value = false;
+    expanded.value = true;
+  }
 }
 
 function startInlineEdit() {
