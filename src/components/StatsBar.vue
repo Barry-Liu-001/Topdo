@@ -16,7 +16,7 @@
     </div>
 
     <button type="button" class="add-btn" title="新建任务" @click="emit('add')">+</button>
-    <button type="button" class="stats-summary" @click="statsOpen = !statsOpen">
+    <button v-if="appStore.statsSummaryEnabled" type="button" class="stats-summary" @click="statsOpen = !statsOpen">
       今日完成 {{ taskStore.todayCompletedCount }} 项 · 本周 {{ taskStore.weekCompletedCount }} 项 · 🔥连续 {{ taskStore.completionStreak }} 天
     </button>
     <StatsPanel v-if="statsOpen" />
@@ -25,10 +25,12 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue';
+import { useAppStore } from '../stores/appStore';
 import { useTaskStore } from '../stores/taskStore';
 import type { TaskFilter } from '../stores/taskStore';
 import StatsPanel from './StatsPanel.vue';
 
+const appStore = useAppStore();
 const taskStore = useTaskStore();
 
 const currentFilter = computed(() => taskStore.filter);

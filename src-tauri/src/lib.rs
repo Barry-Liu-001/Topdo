@@ -3052,6 +3052,9 @@ fn show_main_window(app: AppHandle) -> Result<(), String> {
   window.unminimize().map_err(|err| err.to_string())?;
   window.show().map_err(|err| err.to_string())?;
   window.set_focus().map_err(|err| err.to_string())?;
+  if let Some(menubar) = app.get_webview_window(MENUBAR_WINDOW_LABEL) {
+    let _ = menubar.hide();
+  }
   Ok(())
 }
 

@@ -157,6 +157,13 @@
         <label class="toggle"><input v-model="reminderEnabledModel" type="checkbox" /><span /></label>
       </div>
       <div class="setting-row">
+        <span class="setting-icon blue"><Icon name="stats" :size="18" /></span>
+        <div class="setting-text">
+          <p class="setting-name">统计摘要</p>
+        </div>
+        <label class="toggle"><input v-model="statsSummaryEnabledModel" type="checkbox" /><span /></label>
+      </div>
+      <div class="setting-row">
         <span class="setting-icon green"><Icon name="cat" :size="18" /></span>
         <div class="setting-text">
           <p class="setting-name">宠物模式</p>
@@ -440,6 +447,10 @@ const reminderEnabledModel = computed({
 const autoUpdateEnabledModel = computed({
   get: () => appStore.autoUpdateEnabled,
   set: (enabled: boolean) => appStore.setAutoUpdateEnabled(enabled)
+});
+const statsSummaryEnabledModel = computed({
+  get: () => appStore.statsSummaryEnabled,
+  set: (enabled: boolean) => appStore.setStatsSummaryEnabled(enabled)
 });
 
 function setStatus(type: StatusType, message: string) {

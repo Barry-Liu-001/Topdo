@@ -14,7 +14,7 @@
           <div class="row"><span>打开/关闭设置</span><kbd>⌘,</kbd></div>
           <div class="row"><span>主题切换</span><kbd>⌘⇧L</kbd></div>
           <div class="row"><span>快捷键面板</span><kbd>⌘K</kbd></div>
-          <div class="row"><span>关闭当前层</span><kbd>Esc</kbd></div>
+          <div class="row"><span>关闭当前层 / 隐藏窗口</span><kbd>Esc</kbd></div>
           <div class="row">
             <span>手动同步</span>
             <div class="keys">

@@ -871,7 +871,7 @@ export const useTaskStore = defineStore('task', {
             fields: { status: toStatus }
           });
           this.setTaskPatch(recordId, {
-            ...updated,
+            ...normalizeTask(updated),
             record_id: updated.record_id || recordId,
             id: updated.id || updated.record_id || recordId,
             sync_status: 'synced'
@@ -968,7 +968,7 @@ export const useTaskStore = defineStore('task', {
             fields: { notes }
           });
           this.setTaskPatch(recordId, {
-            ...updated,
+            ...normalizeTask(updated),
             record_id: updated.record_id || recordId,
             id: updated.id || updated.record_id || recordId,
             sync_status: 'synced'
@@ -1048,7 +1048,7 @@ export const useTaskStore = defineStore('task', {
             fields: { name: trimmed }
           });
           this.setTaskPatch(recordId, {
-            ...updated,
+            ...normalizeTask(updated),
             record_id: updated.record_id || recordId,
             id: updated.id || updated.record_id || recordId,
             sync_status: 'synced'
@@ -1120,7 +1120,7 @@ export const useTaskStore = defineStore('task', {
             fields: { priority: normalizedPriority }
           });
           this.setTaskPatch(recordId, {
-            ...updated,
+            ...normalizeTask(updated),
             record_id: updated.record_id || recordId,
             id: updated.id || updated.record_id || recordId,
             sync_status: 'synced'

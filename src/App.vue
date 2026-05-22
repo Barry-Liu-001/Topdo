@@ -200,6 +200,7 @@ import { useTaskStore } from './stores/taskStore';
 import type { TaskFilter } from './stores/taskStore';
 import type { Task } from './types';
 import { WindowMode } from './types/pet';
+import { isTauri } from './utils/tauriEnv';
 import { startHabitReminderService, startReminderService, type InAppReminder } from './utils/reminder';
 import { initializeTheme, toggleThemeQuickly, useThemeState } from './utils/theme';
 
@@ -224,7 +225,7 @@ const taskStore = useTaskStore();
 const appStore = useAppStore();
 const habitStore = useHabitStore();
 const petStore = usePetStore();
-const appWindow = getCurrentWindow();
+const appWindow = isTauri() ? getCurrentWindow() : null;
 
 const currentView = ref<ViewType>('main');
 const isMiniMode = ref(false);
@@ -473,6 +474,7 @@ async function restoreNormalMode() {
 
 async function persistPetPosition() {
   try {
+    if (!appWindow) return;
     const position = await appWindow.outerPosition();
     petStore.catPosition = {
       x: Number(position.x ?? 0),
@@ -489,6 +491,7 @@ async function applyPetPosition() {
   const y = Number(petStore.catPosition.y ?? 0);
   if (!Number.isFinite(x) || !Number.isFinite(y) || (x === 0 && y === 0)) return;
   try {
+    if (!appWindow) return;
     await appWindow.setPosition(new PhysicalPosition(x, y));
   } catch {
     // ignore invalid saved position
@@ -519,6 +522,7 @@ function onMiniMouseDown(event: MouseEvent) {
     const dy = moveEvent.clientY - miniStartPoint.y;
     if (Math.hypot(dx, dy) < 3) return;
     miniDragging.value = true;
+    if (!appWindow) return;
     void appWindow.startDragging().catch((error) => {
       showError(String(error));
     });
@@ -569,6 +573,7 @@ async function onManualSync() {
 }
 
 function onVisibilityChange() {
+  if (!isTauri()) return;
   if (document.visibilityState === 'visible') {
     void reapplyWindowTraits().then(() => reconcileWindowMode());
     if (taskStore.mode === 'feishu' && currentView.value === 'main') {
@@ -709,6 +714,12 @@ function onGlobalKeydown(event: KeyboardEvent) {
       createInlineVisible.value = false;
       return;
     }
+    if (taskListRef.value?.collapseFocused?.()) {
+      return;
+    }
+    if (!isMiniMode.value) {
+      void onHideToTray();
+    }
     return;
   }
 
@@ -802,76 +813,82 @@ function onGlobalKeydown(event: KeyboardEvent) {
 onMounted(async () => {
   initializeTheme();
   appStore.load();
-  await habitStore.fetchHabits().catch((error) => showError(String(error)));
-  await petStore.load().catch(() => undefined);
-  await syncWindowState();
-  unlistenWindowModeChanged = await listen<WindowModeChangedPayload>('window-mode-changed', (event) => {
-    const payload = event.payload;
-    isMiniMode.value = payload.mini_mode;
-    petStore.windowMode = payload.mode === 'cat' ? WindowMode.Cat : WindowMode.Panel;
-    void petStore.save();
-    if (payload.mode === 'cat') {
-      void applyPetPosition();
-    }
-  });
-  unlistenTasksUpdated = await listen('tasks-updated', () => {
-    void taskStore.fetchTasks().catch((error) => showError(String(error)));
-  });
-  try {
-    const savedSize = await invoke<WindowSizePayload | null>('get_window_size');
-    if (savedSize && savedSize.width > 0 && savedSize.height > 0) {
-      await appWindow.setSize(new LogicalSize(savedSize.width, savedSize.height));
-    }
-  } catch (error) {
-    console.warn('恢复窗口尺寸失败:', error);
-  }
-
-  unlistenResized = await appWindow.onResized(({ payload: size }) => {
-    if (resizeTimer) {
-      clearTimeout(resizeTimer);
-    }
-
-    resizeTimer = setTimeout(async () => {
-      try {
-        await invoke('save_window_size', {
-          width: size.width,
-          height: size.height
-        });
-      } catch (error) {
-        console.warn('保存窗口尺寸失败:', error);
+  if (isTauri()) {
+    await habitStore.fetchHabits().catch((error) => showError(String(error)));
+    await petStore.load().catch(() => undefined);
+    await syncWindowState();
+    unlistenWindowModeChanged = await listen<WindowModeChangedPayload>('window-mode-changed', (event) => {
+      const payload = event.payload;
+      isMiniMode.value = payload.mini_mode;
+      petStore.windowMode = payload.mode === 'cat' ? WindowMode.Cat : WindowMode.Panel;
+      void petStore.save();
+      if (payload.mode === 'cat') {
+        void applyPetPosition();
       }
-    }, 500);
-  });
-  unlistenFocusChanged = await appWindow.onFocusChanged(({ payload }) => {
-    if (payload) {
-      void reapplyWindowTraits().then(() => reconcileWindowMode());
-      if (currentView.value === 'main') void taskStore.fetchTasks().catch((error) => showError(String(error)));
+    });
+    unlistenTasksUpdated = await listen('tasks-updated', () => {
+      void taskStore.fetchTasks().catch((error) => showError(String(error)));
+    });
+    try {
+      const savedSize = await invoke<WindowSizePayload | null>('get_window_size');
+      if (savedSize && savedSize.width > 0 && savedSize.height > 0 && appWindow) {
+        await appWindow.setSize(new LogicalSize(savedSize.width, savedSize.height));
+      }
+    } catch (error) {
+      console.warn('恢复窗口尺寸失败:', error);
     }
-  });
 
-  await bootstrap();
-  if (petStore.enabled && (isMiniMode.value || petStore.windowMode === WindowMode.Cat)) {
-    isMiniMode.value = true;
-    petStore.windowMode = WindowMode.Cat;
-    await applyPetPosition();
-  } else {
-    if (isMiniMode.value) {
-      await restoreNormalMode();
+    if (appWindow) {
+      unlistenResized = await appWindow.onResized(({ payload: size }) => {
+        if (resizeTimer) {
+          clearTimeout(resizeTimer);
+        }
+
+        resizeTimer = setTimeout(async () => {
+          try {
+            await invoke('save_window_size', {
+              width: size.width,
+              height: size.height
+            });
+          } catch (error) {
+            console.warn('保存窗口尺寸失败:', error);
+          }
+        }, 500);
+      });
+      unlistenFocusChanged = await appWindow.onFocusChanged(({ payload }) => {
+        if (payload) {
+          void reapplyWindowTraits().then(() => reconcileWindowMode());
+          if (currentView.value === 'main') void taskStore.fetchTasks().catch((error) => showError(String(error)));
+        }
+      });
     }
-    isMiniMode.value = false;
-    petStore.windowMode = WindowMode.Panel;
+
+    await bootstrap();
+    if (petStore.enabled && (isMiniMode.value || petStore.windowMode === WindowMode.Cat)) {
+      isMiniMode.value = true;
+      petStore.windowMode = WindowMode.Cat;
+      await applyPetPosition();
+    } else {
+      if (isMiniMode.value) {
+        await restoreNormalMode();
+      }
+      isMiniMode.value = false;
+      petStore.windowMode = WindowMode.Panel;
+    }
+    await petStore.save();
+    await taskStore.initRecurringTasks().catch((error) => showError(String(error)));
+    await ensureNotificationPermission();
+    taskStore.startDailyRecurrenceCheck();
+    startReminderService(
+      () => (appStore.reminderEnabled ? taskStore.tasks : []),
+      (recordId) => taskStore.markTaskReminderNotified(recordId),
+      showReminderToast
+    );
+    startHabitReminderService(() => habitStore.habits, () => habitStore.logs, showReminderToast);
+    await ensureInitialWindowTraitsApplied();
+  } else {
+    currentView.value = 'main';
   }
-  await petStore.save();
-  await taskStore.initRecurringTasks().catch((error) => showError(String(error)));
-  await ensureNotificationPermission();
-  taskStore.startDailyRecurrenceCheck();
-  startReminderService(
-    () => (appStore.reminderEnabled ? taskStore.tasks : []),
-    (recordId) => taskStore.markTaskReminderNotified(recordId),
-    showReminderToast
-  );
-  startHabitReminderService(() => habitStore.habits, () => habitStore.logs, showReminderToast);
-  await ensureInitialWindowTraitsApplied();
   maybeShowOnboarding();
   maybeShowShortcutTip();
   document.addEventListener('visibilitychange', onVisibilityChange);

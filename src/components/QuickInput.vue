@@ -29,6 +29,29 @@
         <div class="input-divider" aria-hidden="true"></div>
       </div>
 
+      <section class="sub-section">
+        <div class="section-head">
+          <div class="opt-icon opt-icon--gray"><Icon name="list" :size="13" /></div>
+          <span>子任务</span>
+        </div>
+        <ul v-if="subTasks.length" class="sub-list">
+          <li v-for="item in subTasks" :key="item.id" class="sub-item">
+            <span class="sub-circle" aria-hidden="true"></span>
+            <input v-model="item.text" class="sub-input" placeholder="子任务名称" @keydown.enter.prevent="addSubTask" />
+            <button type="button" class="sub-remove" title="删除子任务" @click="removeSubTask(item.id)">×</button>
+          </li>
+        </ul>
+        <button type="button" class="sub-add" @click="addSubTask">+ 添加子任务</button>
+      </section>
+
+      <section class="note-section">
+        <div class="section-head">
+          <div class="opt-icon opt-icon--gray"><Icon name="file-text" :size="13" /></div>
+          <span>备注</span>
+        </div>
+        <textarea v-model="note" class="note-textarea" placeholder="添加备注..." rows="2"></textarea>
+      </section>
+
       <div class="accordion-panel">
         <section v-if="expandedOption !== 'priority'" class="opt-row" @click="toggleOption('priority')">
           <div class="opt-icon opt-icon--blue"><Icon name="priority" :size="13" /></div>
@@ -55,7 +78,9 @@
             </button>
           </div>
         </section>
+      </div>
 
+      <div class="accordion-panel">
         <section v-if="expandedOption !== 'date'" class="opt-row" @click="toggleOption('date')">
           <div class="opt-icon opt-icon--green"><Icon name="calendar" :size="13" /></div>
           <span class="opt-title">日期</span>
@@ -170,29 +195,6 @@
           </div>
         </section>
       </div>
-
-      <section class="sub-section">
-        <div class="section-head">
-          <div class="opt-icon opt-icon--gray"><Icon name="list" :size="13" /></div>
-          <span>子任务</span>
-        </div>
-        <ul v-if="subTasks.length" class="sub-list">
-          <li v-for="item in subTasks" :key="item.id" class="sub-item">
-            <span class="sub-circle" aria-hidden="true"></span>
-            <input v-model="item.text" class="sub-input" placeholder="子任务名称" @keydown.enter.prevent="addSubTask" />
-            <button type="button" class="sub-remove" title="删除子任务" @click="removeSubTask(item.id)">×</button>
-          </li>
-        </ul>
-        <button type="button" class="sub-add" @click="addSubTask">+ 添加子任务</button>
-      </section>
-
-      <section class="note-section">
-        <div class="section-head">
-          <div class="opt-icon opt-icon--gray"><Icon name="file-text" :size="13" /></div>
-          <span>备注</span>
-        </div>
-        <textarea v-model="note" class="note-textarea" placeholder="添加备注..." rows="2"></textarea>
-      </section>
     </div>
 
   </div>

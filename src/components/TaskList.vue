@@ -16,44 +16,31 @@
 
     <div v-else class="task-list">
       <div
-        v-for="group in groupedTasks"
-        :key="group.key"
-        class="task-group"
-        :class="{ 'drag-over': draggingTaskId && dragOverGroup === group.key && group.droppable }"
-        @dragover.prevent="group.droppable && onGroupDragOver(group.key)"
-        @drop.prevent="group.droppable && onDropOnGroup(group.priority)"
+        v-for="task in flatTasks"
+        :key="task.record_id"
+        draggable="true"
+        class="task-draggable"
+        :class="{
+          dragging: draggingTaskId === task.record_id,
+          'drop-before': dragOverTaskId === task.record_id && dragOverPlacement === 'before',
+          'drop-after': dragOverTaskId === task.record_id && dragOverPlacement === 'after'
+        }"
+        @dragstart="onDragStart(task, $event)"
+        @dragend="onDragEnd"
+        @dragover.prevent.stop="onTaskDragOverFlat(task.record_id, $event)"
+        @drop.prevent.stop="onDropOnTaskFlat(task.record_id)"
       >
-        <div class="task-group__header">
-          <span>{{ group.label }}</span>
-          <span>{{ group.tasks.length }}</span>
-        </div>
-        <div
-          v-for="task in group.tasks"
-          :key="task.record_id"
-          draggable="true"
-          class="task-draggable"
-          :class="{
-            dragging: draggingTaskId === task.record_id,
-            'drop-before': dragOverTaskId === task.record_id && dragOverPlacement === 'before',
-            'drop-after': dragOverTaskId === task.record_id && dragOverPlacement === 'after'
-          }"
-          @dragstart="onDragStart(task, $event)"
-          @dragend="onDragEnd"
-          @dragover.prevent.stop="group.droppable && onTaskDragOver(group.key, task.record_id, $event)"
-          @drop.prevent.stop="group.droppable && onDropOnTask(group.priority, task.record_id)"
-        >
-          <TaskItem
-            :ref="(el) => setTaskItemRef(task.record_id, el)"
-            :task="task"
-            :mode="mode"
-            :focused="focusedTaskId === task.record_id"
-            :status-sync="statusSyncState[task.record_id] || 'idle'"
-            :notes-sync="notesSyncState[task.record_id] || 'idle'"
-            @error="emit('error', $event)"
-            @focus="setFocusedTask"
-            @request-delete="emit('request-delete', $event)"
-          />
-        </div>
+        <TaskItem
+          :ref="(el) => setTaskItemRef(task.record_id, el)"
+          :task="task"
+          :mode="mode"
+          :focused="focusedTaskId === task.record_id"
+          :status-sync="statusSyncState[task.record_id] || 'idle'"
+          :notes-sync="notesSyncState[task.record_id] || 'idle'"
+          @error="emit('error', $event)"
+          @focus="setFocusedTask"
+          @request-delete="emit('request-delete', $event)"
+        />
       </div>
     </div>
   </section>
@@ -129,6 +116,10 @@ function normalizeTaskStatus(status: string): 'todo' | 'in_progress' | 'complete
   return 'unknown';
 }
 
+const flatTasks = computed(() => {
+  return groupedTasks.value.flatMap((group) => group.tasks);
+});
+
 const emptyIcon = computed(() => {
   if (store.filter === 'done') return '🎉';
   if (store.filter === 'in_progress') return '🚀';
@@ -187,6 +178,11 @@ async function toggleFocusedStatus() {
 function requestDeleteFocused() {
   if (!focusedTaskId.value) return;
   itemRefs.get(focusedTaskId.value)?.requestDeleteFromKeyboard?.();
+}
+
+function collapseFocused(): boolean {
+  if (!focusedTaskId.value) return false;
+  return itemRefs.get(focusedTaskId.value)?.collapseDetail?.() ?? false;
 }
 
 async function openTask(recordId: string) {
@@ -261,6 +257,38 @@ async function onDropOnTask(priority: string, beforeRecordId: string) {
   }
 }
 
+function onTaskDragOverFlat(recordId: string, event: DragEvent) {
+  dragOverTaskId.value = recordId;
+  const target = event.currentTarget;
+  if (!(target instanceof HTMLElement)) {
+    dragOverPlacement.value = 'before';
+    return;
+  }
+  const rect = target.getBoundingClientRect();
+  dragOverPlacement.value = event.clientY > rect.top + rect.height / 2 ? 'after' : 'before';
+}
+
+async function onDropOnTaskFlat(beforeRecordId: string) {
+  if (!draggingTaskId.value) {
+    onDragEnd();
+    return;
+  }
+  const placement = dragOverTaskId.value === beforeRecordId ? dragOverPlacement.value : 'before';
+  if (draggingTaskId.value === beforeRecordId) {
+    onDragEnd();
+    return;
+  }
+  const targetTask = flatTasks.value.find((t) => t.record_id === beforeRecordId);
+  const priority = targetTask ? normalizePriority(targetTask.priority) : '普通';
+  try {
+    await store.reorderTask(draggingTaskId.value, priority, beforeRecordId, placement);
+  } catch (error) {
+    emit('error', `排序失败：${String(error)}`);
+  } finally {
+    onDragEnd();
+  }
+}
+
 function clearFocus() {
   focusedTaskId.value = '';
 }
@@ -276,7 +304,8 @@ defineExpose({
   requestDeleteFocused,
   openTask,
   clearFocus,
-  hasTasks
+  hasTasks,
+  collapseFocused
 });
 
 watch(
@@ -348,16 +377,6 @@ watch(
 
 .task-group.drag-over {
   background: color-mix(in srgb, var(--primary) 6%, transparent);
-}
-
-.task-group__header {
-  margin: 10px 12px 2px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--text-tertiary);
 }
 
 .task-draggable.dragging {

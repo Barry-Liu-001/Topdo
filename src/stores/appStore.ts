@@ -4,6 +4,7 @@ const HABIT_MODULE_KEY = 'topdo_habit_module_enabled';
 const HABIT_GUIDE_KEY = 'topdo_habit_module_guide_seen';
 const REMINDER_ENABLED_KEY = 'topdo_reminder_enabled';
 const AUTO_UPDATE_ENABLED_KEY = 'topdo_auto_update_enabled';
+const STATS_SUMMARY_ENABLED_KEY = 'topdo_stats_summary_enabled';
 
 export const useAppStore = defineStore('app', {
   state: () => ({
@@ -11,7 +12,8 @@ export const useAppStore = defineStore('app', {
     habitModuleEnabled: false,
     habitGuideVisible: false,
     reminderEnabled: true,
-    autoUpdateEnabled: true
+    autoUpdateEnabled: true,
+    statsSummaryEnabled: true
   }),
   actions: {
     load() {
@@ -31,6 +33,12 @@ export const useAppStore = defineStore('app', {
         this.autoUpdateEnabled = storedAutoUpdate === null ? true : storedAutoUpdate === '1';
       } catch {
         this.autoUpdateEnabled = true;
+      }
+      try {
+        const storedStatsSummary = localStorage.getItem(STATS_SUMMARY_ENABLED_KEY);
+        this.statsSummaryEnabled = storedStatsSummary === null ? true : storedStatsSummary === '1';
+      } catch {
+        this.statsSummaryEnabled = true;
       }
       if (!this.habitModuleEnabled) this.currentMode = 'tasks';
     },
@@ -76,6 +84,14 @@ export const useAppStore = defineStore('app', {
       this.autoUpdateEnabled = enabled;
       try {
         localStorage.setItem(AUTO_UPDATE_ENABLED_KEY, enabled ? '1' : '0');
+      } catch {
+        // ignore
+      }
+    },
+    setStatsSummaryEnabled(enabled: boolean) {
+      this.statsSummaryEnabled = enabled;
+      try {
+        localStorage.setItem(STATS_SUMMARY_ENABLED_KEY, enabled ? '1' : '0');
       } catch {
         // ignore
       }

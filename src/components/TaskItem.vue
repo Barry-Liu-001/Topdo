@@ -82,7 +82,9 @@
             <span v-else>{{ segment.text }}</span>
           </template>
         </p>
-        <div v-if="!inlineEditing && (dueDateInfo || recurrenceText || subTaskTotal > 0)" class="task-meta-line">
+        <div v-if="!inlineEditing" class="task-meta-line">
+          <span class="badge" :class="statusBadgeClass">{{ statusLabel }}</span>
+          <span class="badge" :class="priorityBadgeClass">{{ normalizePriorityDraft(task.priority) }}</span>
           <span v-if="recurrenceText" class="badge badge-recurring">
             <Icon name="recurring" :size="11" />
             <span>{{ recurrenceText }}</span>
@@ -106,6 +108,27 @@
         <span class="task-time">{{ formatTime(task.created_at) }}</span>
       </div>
     </article>
+    <div v-if="subTaskTotal > 0 && !inlineEditing" class="subtask-inline-list">
+      <div v-for="item in subTasks" :key="item.id" class="subtask-inline-item">
+        <button type="button" class="subtask-inline-checkbox" :class="{ checked: item.done }" @click.stop="toggleSubTaskInline(item.id)">
+          <svg v-if="item.done" viewBox="0 0 12 12" width="8" height="8" aria-hidden="true">
+            <path d="M2.5 6l2.5 2.5 4.5-5" fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+        </button>
+        <input
+          v-if="editingSubTaskId === item.id"
+          ref="subTaskInlineInputRef"
+          v-model.trim="editingSubTaskDraft"
+          type="text"
+          class="subtask-inline-edit-input"
+          @click.stop
+          @blur="commitSubTaskInlineEdit"
+          @keydown.enter.prevent="commitSubTaskInlineEdit"
+          @keydown.esc.prevent="cancelSubTaskInlineEdit"
+        />
+        <span v-else class="subtask-inline-text" :class="{ done: item.done }" @dblclick.stop.prevent="startSubTaskInlineEdit(item.id)">{{ item.text }}</span>
+      </div>
+    </div>
     <div v-if="inlineEditing" class="inline-edit-hint">回车保存 · Esc 取消</div>
 
     <Transition name="context-menu">
@@ -122,25 +145,6 @@
 
     <Transition name="expand">
       <div v-if="expanded" class="task-detail-panel" @click.stop>
-        <header class="edit-header">
-          <button type="button" class="back-btn" @click="handleBack">
-            <Icon name="chevron-left" :size="16" />
-            返回
-          </button>
-          <span class="edit-title">任务详情</span>
-          <div class="detail-more-wrap">
-            <button type="button" class="edit-action-btn" @click.stop="saveDetailDrafts">
-              保存
-            </button>
-          </div>
-        </header>
-
-        <div class="task-status-bar">
-          <span class="detail-badge" :class="statusBadgeClass">{{ statusLabel }}</span>
-          <span v-if="isOverdue" class="detail-badge detail-badge--overdue">已过期</span>
-          <span class="detail-badge" :class="priorityBadgeClass">{{ priorityDraft }}</span>
-        </div>
-
         <div class="detail-body task-scrollbar">
           <div class="task-input-area">
             <input
@@ -153,53 +157,6 @@
             />
             <div class="input-divider" aria-hidden="true"></div>
           </div>
-
-          <section class="detail-option-row detail-option-row--stack" @click="startDateEdit">
-            <div class="detail-option-icon detail-option-icon--green"><Icon name="calendar" :size="17" /></div>
-            <div class="detail-option-content">
-              <span class="detail-option-label">截止时间</span>
-              <div v-if="!isEditingDate" class="date-time-display">
-                <span class="date-badge">{{ formattedDueDate }}</span>
-                <span class="time-badge">{{ formattedDueTime }}</span>
-              </div>
-              <div v-else class="date-edit-block" @click.stop @focusout="onDateEditFocusOut">
-                <ChipSelector :model-value="selectedDateOption" :options="dateOptions" tone="blue" compact @update:model-value="onDateOptionUpdate" />
-                <div v-if="showCustomDueDateInput" class="date-edit-inputs">
-                  <span>日期</span>
-                  <input v-model="dueDateDraft" type="date" @change="onDueDateChange" />
-                </div>
-                <div class="date-edit-inputs">
-                  <span>时间</span>
-                  <input v-model="dueTimeDraft" type="time" :disabled="!dueDateDraft" @change="onDueDateChange" />
-                  <small>{{ dueDateDraft ? '默认 23:59' : '先选日期' }}</small>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          <section class="detail-option-row">
-            <div class="detail-option-icon detail-option-icon--blue"><Icon name="priority" :size="17" /></div>
-            <div class="detail-option-content">
-              <span class="detail-option-label">优先级</span>
-              <ChipSelector v-model="priorityDraft" :options="priorityChipOptions" :tone="priorityChipTone" @update:model-value="onPriorityChipUpdate" />
-            </div>
-          </section>
-
-          <section class="detail-option-row detail-option-row--stack">
-            <div class="detail-option-icon detail-option-icon--purple"><Icon name="recurring" :size="17" /></div>
-            <div class="detail-option-content">
-              <span class="detail-option-label">重复</span>
-              <RecurrencePanel v-model="recurrenceDraft" embedded />
-            </div>
-          </section>
-
-          <section class="detail-option-row detail-option-row--stack">
-            <div class="detail-option-icon detail-option-icon--amber"><Icon name="bell" :size="17" /></div>
-            <div class="detail-option-content">
-              <span class="detail-option-label">提醒</span>
-              <ReminderSelect v-model="reminderDraft" embedded />
-            </div>
-          </section>
 
           <section class="detail-option-row detail-option-row--stack">
             <div class="detail-option-icon detail-option-icon--slate"><Icon name="list" :size="17" /></div>
@@ -265,6 +222,53 @@
             </div>
           </section>
 
+          <section class="detail-option-row detail-option-row--stack" @click="startDateEdit">
+            <div class="detail-option-icon detail-option-icon--green"><Icon name="calendar" :size="17" /></div>
+            <div class="detail-option-content">
+              <span class="detail-option-label">截止时间</span>
+              <div v-if="!isEditingDate" class="date-time-display">
+                <span class="date-badge">{{ formattedDueDate }}</span>
+                <span class="time-badge">{{ formattedDueTime }}</span>
+              </div>
+              <div v-else class="date-edit-block" @click.stop @focusout="onDateEditFocusOut">
+                <ChipSelector :model-value="selectedDateOption" :options="dateOptions" tone="blue" compact @update:model-value="onDateOptionUpdate" />
+                <div v-if="showCustomDueDateInput" class="date-edit-inputs">
+                  <span>日期</span>
+                  <input v-model="dueDateDraft" type="date" @change="onDueDateChange" />
+                </div>
+                <div class="date-edit-inputs">
+                  <span>时间</span>
+                  <input v-model="dueTimeDraft" type="time" :disabled="!dueDateDraft" @change="onDueDateChange" />
+                  <small>{{ dueDateDraft ? '默认 23:59' : '先选日期' }}</small>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="detail-option-row">
+            <div class="detail-option-icon detail-option-icon--blue"><Icon name="priority" :size="17" /></div>
+            <div class="detail-option-content">
+              <span class="detail-option-label">优先级</span>
+              <ChipSelector v-model="priorityDraft" :options="priorityChipOptions" :tone="priorityChipTone" @update:model-value="onPriorityChipUpdate" />
+            </div>
+          </section>
+
+          <section class="detail-option-row detail-option-row--stack">
+            <div class="detail-option-icon detail-option-icon--purple"><Icon name="recurring" :size="17" /></div>
+            <div class="detail-option-content">
+              <span class="detail-option-label">重复</span>
+              <RecurrencePanel v-model="recurrenceDraft" embedded />
+            </div>
+          </section>
+
+          <section class="detail-option-row detail-option-row--stack">
+            <div class="detail-option-icon detail-option-icon--amber"><Icon name="bell" :size="17" /></div>
+            <div class="detail-option-content">
+              <span class="detail-option-label">提醒</span>
+              <ReminderSelect v-model="reminderDraft" embedded />
+            </div>
+          </section>
+
           <div class="detail-meta-info">
             <div>创建时间：{{ formatDate(task.created_at) }}</div>
             <div>实际耗时：{{ task.time_spent || '未完成，耗时 0 天' }}</div>
@@ -313,6 +317,8 @@ const taskItemRootRef = ref<HTMLElement | null>(null);
 const notesDraft = ref(props.task.notes || '');
 const priorityDraft = ref(normalizePriorityDraft(props.task.priority));
 const newSubTaskText = ref('');
+const editingSubTaskId = ref<string | null>(null);
+const editingSubTaskDraft = ref('');
 const initialDueParts = splitDueDate(props.task.due_date);
 const dueDateDraft = ref(initialDueParts.date);
 const dueTimeDraft = ref(initialDueParts.time);
@@ -528,6 +534,15 @@ watch(menuVisible, (visible) => {
   if (visible) addContextMenuListeners();
   else removeContextMenuListeners();
 });
+
+watch(nameDraft, () => { if (expanded.value) autoSaveDetails(); });
+watch(priorityDraft, () => { if (expanded.value) autoSaveDetails(); });
+watch(notesDraft, () => { if (expanded.value) autoSaveDetails(); });
+watch(dueDateDraft, () => { if (expanded.value) autoSaveDetails(); });
+watch(dueTimeDraft, () => { if (expanded.value) autoSaveDetails(); });
+watch(recurrenceDraft, () => { if (expanded.value) autoSaveDetails(); }, { deep: true });
+watch(reminderDraft, () => { if (expanded.value) autoSaveDetails(); });
+watch(subTasksDraft, () => { if (expanded.value && subTasksDirty.value) autoSaveDetails(); }, { deep: true });
 
 const statusKey = computed(() => {
   const value = props.task.status.trim();
@@ -825,6 +840,77 @@ function deleteSubTask(id: string) {
   subTasksDirty.value = true;
 }
 
+async function toggleSubTaskInline(id: string) {
+  subTasksDraft.value = subTasks.value.map((item) => (item.id === id ? { ...item, done: !item.done } : item));
+  subTasksDirty.value = true;
+  try {
+    await store.updateTaskDetails(props.task.record_id, {
+      name: nameDraft.value,
+      priority: priorityDraft.value,
+      due_date: buildDueDateValue(dueDateDraft.value, dueTimeDraft.value),
+      recurrence_rule: recurrenceDraft.value,
+      reminder_before: reminderDraft.value,
+      sub_tasks: subTasksDraft.value,
+      notes: notesDraft.value
+    });
+    subTasksDirty.value = false;
+  } catch (error) {
+    emit('error', `子任务更新失败：${String(error)}`);
+  }
+}
+
+function startSubTaskInlineEdit(id: string) {
+  const item = subTasks.value.find((s) => s.id === id);
+  if (!item) return;
+  editingSubTaskId.value = id;
+  editingSubTaskDraft.value = item.text;
+  void nextTick(() => {
+    const inputs = taskItemRootRef.value?.querySelectorAll('.subtask-inline-edit-input');
+    const input = inputs?.[0] as HTMLInputElement | undefined;
+    input?.focus();
+    input?.select();
+  });
+}
+
+async function commitSubTaskInlineEdit() {
+  const id = editingSubTaskId.value;
+  if (!id) return;
+  const trimmed = editingSubTaskDraft.value.trim();
+  if (!trimmed) {
+    cancelSubTaskInlineEdit();
+    return;
+  }
+  const current = subTasks.value.find((s) => s.id === id);
+  if (current && current.text === trimmed) {
+    editingSubTaskId.value = null;
+    editingSubTaskDraft.value = '';
+    return;
+  }
+  subTasksDraft.value = subTasks.value.map((item) => (item.id === id ? { ...item, text: trimmed } : item));
+  subTasksDirty.value = true;
+  editingSubTaskId.value = null;
+  editingSubTaskDraft.value = '';
+  try {
+    await store.updateTaskDetails(props.task.record_id, {
+      name: nameDraft.value,
+      priority: priorityDraft.value,
+      due_date: buildDueDateValue(dueDateDraft.value, dueTimeDraft.value),
+      recurrence_rule: recurrenceDraft.value,
+      reminder_before: reminderDraft.value,
+      sub_tasks: subTasksDraft.value,
+      notes: notesDraft.value
+    });
+    subTasksDirty.value = false;
+  } catch (error) {
+    emit('error', `子任务保存失败：${String(error)}`);
+  }
+}
+
+function cancelSubTaskInlineEdit() {
+  editingSubTaskId.value = null;
+  editingSubTaskDraft.value = '';
+}
+
 function openContextMenu(event: MouseEvent) {
   menuVisible.value = false;
   menuX.value = event.clientX;
@@ -858,7 +944,44 @@ function onContextDelete() {
 }
 
 function handleBack() {
+  flushAutoSave();
   expanded.value = false;
+}
+
+let autoSaveTimer: ReturnType<typeof setTimeout> | null = null;
+
+function autoSaveDetails() {
+  if (autoSaveTimer) clearTimeout(autoSaveTimer);
+  autoSaveTimer = setTimeout(() => {
+    void doAutoSave();
+  }, 500);
+}
+
+function flushAutoSave() {
+  if (autoSaveTimer) {
+    clearTimeout(autoSaveTimer);
+    autoSaveTimer = null;
+  }
+  void doAutoSave();
+}
+
+async function doAutoSave() {
+  try {
+    addSubTask();
+    await store.updateTaskDetails(props.task.record_id, {
+      name: nameDraft.value,
+      priority: priorityDraft.value,
+      due_date: buildDueDateValue(dueDateDraft.value, dueTimeDraft.value),
+      recurrence_rule: recurrenceDraft.value,
+      reminder_before: reminderDraft.value,
+      sub_tasks: subTasks.value,
+      notes: notesDraft.value
+    });
+    subTasksDraft.value = cloneSubTasks(subTasks.value);
+    subTasksDirty.value = false;
+  } catch (error) {
+    emit('error', `自动保存失败：${String(error)}`);
+  }
 }
 
 async function saveDetailDrafts() {
@@ -875,7 +998,6 @@ async function saveDetailDrafts() {
     });
     subTasksDraft.value = cloneSubTasks(subTasks.value);
     subTasksDirty.value = false;
-    expanded.value = false;
   } catch (error) {
     emit('error', `任务保存失败：${String(error)}`);
   }
@@ -934,11 +1056,19 @@ function openFromReminder() {
   });
 }
 
+function collapseDetail(): boolean {
+  if (!expanded.value) return false;
+  flushAutoSave();
+  expanded.value = false;
+  return true;
+}
+
 defineExpose({
   toggleExpandFromKeyboard,
   toggleStatusFromKeyboard,
   requestDeleteFromKeyboard,
-  openFromReminder
+  openFromReminder,
+  collapseDetail
 });
 </script>
 
@@ -1140,6 +1270,36 @@ defineExpose({
 .badge-overdue {
   color: #dc2626;
   background: color-mix(in srgb, #dc2626 13%, var(--bg-solid));
+}
+
+.badge.detail-badge--todo {
+  color: #8e8e93;
+  background: #f5f5f7;
+}
+
+.badge.detail-badge--progress {
+  color: #007aff;
+  background: rgba(0, 122, 255, 0.08);
+}
+
+.badge.detail-badge--done {
+  color: #34c759;
+  background: rgba(52, 199, 89, 0.08);
+}
+
+.badge.detail-badge--urgent {
+  color: #ff3b30;
+  background: #fff2f2;
+}
+
+.badge.detail-badge--important {
+  color: #007aff;
+  background: #f0f7ff;
+}
+
+.badge.detail-badge--normal {
+  color: #8e8e93;
+  background: #f5f5f7;
 }
 
 .subtask-progress {
@@ -1646,7 +1806,7 @@ defineExpose({
   min-height: 0;
   flex: 1;
   overflow-y: auto;
-  padding: 14px 16px;
+  padding: 16px 16px 14px;
 }
 
 .task-input-area {
@@ -2063,6 +2223,83 @@ defineExpose({
   border-top: 1px solid var(--border-light);
   font-size: 10px;
   color: var(--text-tertiary);
+}
+
+.subtask-inline-list {
+  margin: -2px 10px 8px;
+  padding: 4px 12px 6px 38px;
+  border: 0.5px solid var(--border, #e5e5ea);
+  border-top: 0;
+  border-radius: 0 0 var(--radius-card, 8px) var(--radius-card, 8px);
+  background: var(--bg-solid, #ffffff);
+}
+
+.task-card.completed + .subtask-inline-list {
+  opacity: 0.5;
+}
+
+.subtask-inline-item {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.subtask-inline-item:last-child {
+  border-bottom: 0;
+}
+
+.subtask-inline-checkbox {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 1.5px solid var(--text-placeholder);
+  background: transparent;
+  flex-shrink: 0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+  padding: 0;
+}
+
+.subtask-inline-checkbox:hover {
+  border-color: var(--accent-blue);
+  background: color-mix(in srgb, var(--accent-blue) 8%, transparent);
+}
+
+.subtask-inline-checkbox.checked {
+  border-color: var(--accent-blue);
+  background: var(--accent-blue);
+}
+
+.subtask-inline-text {
+  font-size: 11px;
+  color: var(--text-secondary);
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.subtask-inline-text.done {
+  color: var(--text-tertiary);
+  text-decoration: line-through;
+}
+
+.subtask-inline-edit-input {
+  min-width: 0;
+  flex: 1;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--text-primary);
+  font-family: var(--font-family);
+  font-size: 11px;
+  line-height: 1.3;
+  padding: 0;
 }
 
 </style>
