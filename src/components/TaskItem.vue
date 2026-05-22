@@ -62,7 +62,7 @@
         type="button"
         class="task-content text-left"
         @click="onTaskContentClick"
-        @dblclick.stop.prevent="startInlineEdit"
+        @dblclick.stop.prevent="onTaskContentDblClick"
       >
         <input
           v-if="inlineEditing"
@@ -108,7 +108,7 @@
         <span class="task-time">{{ formatTime(task.created_at) }}</span>
       </div>
     </article>
-    <div v-if="subTaskTotal > 0 && !inlineEditing && !subtasksCollapsed" class="subtask-inline-list">
+    <div v-if="subTaskTotal > 0 && !inlineEditing && !subtasksCollapsed && !expanded" class="subtask-inline-list">
       <div v-for="item in subTasks" :key="item.id" class="subtask-inline-item">
         <button type="button" class="subtask-inline-checkbox" :class="{ checked: item.done }" @click.stop="toggleSubTaskInline(item.id)">
           <svg v-if="item.done" viewBox="0 0 12 12" width="8" height="8" aria-hidden="true">
@@ -299,6 +299,7 @@ const props = defineProps<{
   statusSync: SyncState;
   notesSync: SyncState;
   focused?: boolean;
+  defaultExpanded?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -319,7 +320,7 @@ const priorityDraft = ref(normalizePriorityDraft(props.task.priority));
 const newSubTaskText = ref('');
 const editingSubTaskId = ref<string | null>(null);
 const editingSubTaskDraft = ref('');
-const subtasksCollapsed = ref(true);
+const subtasksCollapsed = ref(!props.defaultExpanded);
 const initialDueParts = splitDueDate(props.task.due_date);
 const dueDateDraft = ref(initialDueParts.date);
 const dueTimeDraft = ref(initialDueParts.time);
@@ -696,16 +697,31 @@ function handleNameBlur(event: FocusEvent) {
   if (!nameDraft.value.trim()) cancelNameEdit();
 }
 
+let clickTimer: ReturnType<typeof setTimeout> | null = null;
+
 function onTaskContentClick() {
   if (inlineEditing.value) return;
   emit('focus', props.task.record_id);
+  if (clickTimer) {
+    clearTimeout(clickTimer);
+    clickTimer = null;
+    return;
+  }
+  clickTimer = setTimeout(() => {
+    clickTimer = null;
+    subtasksCollapsed.value = !subtasksCollapsed.value;
+  }, 250);
+}
+
+function onTaskContentDblClick() {
+  if (clickTimer) {
+    clearTimeout(clickTimer);
+    clickTimer = null;
+  }
   if (expanded.value) {
     flushAutoSave();
     expanded.value = false;
-  } else if (subTaskTotal.value > 0 && !subtasksCollapsed.value) {
-    subtasksCollapsed.value = true;
   } else {
-    subtasksCollapsed.value = false;
     expanded.value = true;
   }
 }

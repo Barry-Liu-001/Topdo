@@ -37,6 +37,7 @@
           :focused="focusedTaskId === task.record_id"
           :status-sync="statusSyncState[task.record_id] || 'idle'"
           :notes-sync="notesSyncState[task.record_id] || 'idle'"
+          :default-expanded="task.record_id === firstSubTaskId"
           @error="emit('error', $event)"
           @focus="setFocusedTask"
           @request-delete="emit('request-delete', $event)"
@@ -118,6 +119,11 @@ function normalizeTaskStatus(status: string): 'todo' | 'in_progress' | 'complete
 
 const flatTasks = computed(() => {
   return groupedTasks.value.flatMap((group) => group.tasks);
+});
+
+const firstSubTaskId = computed(() => {
+  const task = flatTasks.value.find((t) => (t.sub_tasks?.length ?? 0) > 0);
+  return task?.record_id ?? '';
 });
 
 const emptyIcon = computed(() => {
