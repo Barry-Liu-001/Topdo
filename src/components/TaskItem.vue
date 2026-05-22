@@ -9,7 +9,6 @@
       ]"
       :data-task-id="task.record_id"
       @contextmenu.prevent="openContextMenu"
-      @click="onTaskContentClick"
     >
       <div v-if="priorityColor" class="priority-bar" :style="{ background: priorityColor }"></div>
 
